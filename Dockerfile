@@ -23,8 +23,16 @@ RUN sed -i 's|user  nginx;|user nginx www-data;|' /etc/nginx/nginx.conf
 
 # GRAV
 RUN rm /usr/share/nginx/html/*
-COPY ./grav /usr/share/nginx/html
+COPY ./grav-admin /usr/share/nginx/html
+COPY ./perms.sh /usr/share/nginx/html/
 RUN cd /usr/share/nginx/html && bash perms.sh
+
+# GRAV setup
+# TODO: use env-vars here
+WORKDIR /usr/share/nginx/html/
+
+RUN ./bin/plugin login add-user -u admin -p P4ssW0rd -t Admin -e change@me.com -P b -N "Full Name"
+RUN bash perms.sh
 
 # Finish
 CMD ["/usr/bin/supervisord"]
