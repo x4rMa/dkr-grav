@@ -18,7 +18,7 @@ RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 14AA40EC0831756
 
 
 # NGINX
-COPY nginx.conf /etc/nginx/conf.d/default
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 RUN sed -i 's|user  nginx;|user nginx www-data;|' /etc/nginx/nginx.conf
 
 # GRAV
