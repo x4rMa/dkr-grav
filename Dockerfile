@@ -1,25 +1,32 @@
 FROM nginx
 
-# SUPERVISOR
-RUN apt-get update \
-    && apt-get install -y supervisor apt-utils vim \
-    && mkdir -p /var/log/supervisor
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
 # PHP
 ENV PHP_FPM_USER=www-data
 
 RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 14AA40EC0831756756D7F66C4F4EA0AAE5267A6C \
  && echo "deb http://ppa.launchpad.net/ondrej/php5-5.6/ubuntu trusty main" >> /etc/apt/sources.list \
  && apt-get update \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y php5-fpm php5-cli php5-curl php5-gd \
- && sed 's/;daemonize = yes/daemonize = no/' -i /etc/php5/fpm/php-fpm.conf \
- && rm -rf /var/lib/apt/lists/*
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y php5-fpm php5-cli php5-curl php5-gd ca-certificates gettext-base vim \
+ && sed 's/;daemonize = yes/daemonize = no/' -i /etc/php5/fpm/php-fpm.conf
 
 
 # NGINX
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-RUN sed -i 's|user  nginx;|user nginx www-data;|' /etc/nginx/nginx.conf
+ARG nginx=nginx.conf
+COPY $nginx /etc/nginx/nginx.conf
+
+ARG server=server-ssl.conf
+COPY $server /etc/nginx/conf.d/default.conf
+
+# Log / forward request and error logs to docker log collector
+RUN ln -sf /dev/stdout /var/log/nginx/access.log \
+ && ln -sf /dev/stderr /var/log/nginx/error.log
+
+# SSL / config and dummy certificates for localhost
+COPY ./ssl/server.crt /etc/nginx/certs/server.crt
+COPY ./ssl/server.key /etc/nginx/certs/server.key
+COPY ./ssl/dhparams.pem /etc/nginx/certs/dhparams.pem
+# create cert chain for OCSP
+RUN cd /etc/nginx/certs && cat server.key server.crt dhparams.pem > chain.pem
 
 # GRAV
 RUN rm /usr/share/nginx/html/*
@@ -28,11 +35,17 @@ COPY ./perms.sh /usr/share/nginx/html/
 RUN cd /usr/share/nginx/html && bash perms.sh
 
 # GRAV setup
-# TODO: use env-vars here
 WORKDIR /usr/share/nginx/html/
-
+# TODO: use env-vars here
 RUN ./bin/plugin login add-user -u admin -p P4ssW0rd -t Admin -e change@me.com -P b -N "Full Name"
 RUN bash perms.sh
 
-# Finish
-CMD ["/usr/bin/supervisord"]
+# SUPERVISOR
+RUN apt-get update \
+    && apt-get install -y supervisor\
+    && mkdir -p /var/log/supervisor \
+    && touch /var/log/supervisor/supervisord.log \
+    && rm -rf /var/lib/apt/lists/*
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+CMD /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
