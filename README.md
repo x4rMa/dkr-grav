@@ -11,6 +11,6 @@ Point your browser to https://localhost/admin and login with admin & P4ssW0rd.
 
 ## Build with custom nginx & server config
 
-You can use some other config files if you wish:
+Use your own configs if you wish:
 
     docker build --build-arg nginx=my_nginx.conf server=my_server.conf -t gravcms .
